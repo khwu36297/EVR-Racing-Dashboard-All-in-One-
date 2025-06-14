@@ -1,1 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVR Racing Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: white;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 1400px;
+            margin: 0 auto;
+            flex: 1;
+            width: 100%;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .time-display {
+            display: flex;
+            gap: 20px;
+            font-size: 16px;
+        }
+        
+        .time-box {
+            background-color: #2c2c2c;
+            padding: 8px 15px;
+            border-radius: 5px;
+            border: 1px solid #444;
+        }
+        
+        #current-time {
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        #session-duration {
+            color: #ccc;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center; /* Changed from space-between to center */
+            gap: 10px;
+            padding: 15px 0;
+            margin-top: 20px;
+            width: 100%;
+            background-color: #121212;
+            border-top: 1px solid #333;
+        }
+        
+        .control-item { /* New class for flex items in controls */
+            color: #aaa;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
 
+        .control-item a {
+            color: #1a73e8; /* Google blue for link */
+            text-decoration: none;
+        }
+
+        .control-item a:hover {
+            text-decoration: underline;
+        }
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .kpi {
+            background-color: #2c2c2c;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 15px;
+            text-align: center;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.2s;
+        }
+        
+        .kpi:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .kpi-title {
+            color: #aaa;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .kpi-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .kpi-trend {
+            font-size: 24px;
+        }
+        
+        .graph-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .graph-container {
+            background-color: #1a1a1a;
+            border-radius: 5px;
+            padding: 15px;
+            height: 300px;
+            position: relative;
+            flex: 1 1 600px;
+            min-width: 300px;
+            border: 1px solid #333;
+        }
+
+        .graph-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 100;
+            display: flex;
+            gap: 5px;
+        }
+        
+        .reset-zoom-icon-btn {
+            background: none;
+            border: none;
+            color: #aaa; /* Icon color */
+            font-size: 1.2em; /* Icon size */
+            cursor: pointer;
+            transition: color 0.3s;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        .reset-zoom-icon-btn:hover {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .graph-title {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #eee;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 100;
+            background-color: rgba(26, 26, 26, 0.7);
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+        
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        
+        /* Status colors */
+        .status-normal {
+            color: #32CD32 !important;
+        }
+        
+        .status-warning {
+            color: #FFA500 !important;
+        }
+        
+        .status-critical {
+            color: #FF4500 !important;
+        }
+        
+        @media (max-width: 768px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .graph-container {
+                flex: 1 1 100%;
+            }
+            
+            .controls {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>EVR Racing Dashboard</h1>
+            <div class="time-display">
+                <div class="time-box">
+                    <span id="current-time">--:--:--</span>
+                </div>
+                <div class="time-box">
+                    <span id="session-duration">Duration: 00:00:00</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="kpi-grid" id="kpi-container">
+            </div>
+        
+        <div class="graph-section">
+            <div class="graph-container">
+                <div class="graph-title">Motor Temperature (°C)</div>
+                <canvas id="motorTempGraph"></canvas>
+                <div class="graph-controls">
+                    <button class="reset-zoom-icon-btn" data-chart-id="motorTemp" title="Reset Zoom">
+                        <i class="fas fa-redo-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="graph-container">
+                <div class="graph-title">Voltage (V) / Current (A)</div>
+                <canvas id="voltageCurrentGraph"></canvas>
+                <div class="graph-controls">
+                    <button class="reset-zoom-icon-btn" data-chart-id="voltageCurrent" title="Reset Zoom">
+                        <i class="fas fa-redo-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="graph-container">
+                <div class="graph-title">G-Forces (g)</div>
+                <canvas id="gForceGraph"></canvas>
+                <div class="graph-controls">
+                    <button class="reset-zoom-icon-btn" data-chart-id="gForce" title="Reset Zoom">
+                        <i class="fas fa-redo-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="graph-container">
+                <div class="graph-title">Throttle vs. Torque</div>
+                <canvas id="correlationGraph"></canvas>
+                <div class="graph-controls">
+                    <button class="reset-zoom-icon-btn" data-chart-id="correlation" title="Reset Zoom">
+                        <i class="fas fa-redo-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="control-item">
+                Contact Developer: 
+                <a href="mailto:sorasaklaopraphaiphan@gmail.com">sorasaklaopraphaiphan@gmail.com</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dashboard Configuration
+        const config = {
+            updateInterval: 1000, // ms (Matches Flask's update rate)
+            maxDataPoints: 200, // Max data points to show on time-series graphs
+            colors: {
+                motorTemp: 'rgba(255, 99, 132, 1)',
+                voltage: 'rgba(54, 162, 235, 1)',
+                current: 'rgba(75, 192, 192, 1)',
+                gForceX: 'rgba(255, 205, 86, 1)',
+                gForceY: 'rgba(153, 102, 255, 1)',
+                correlationHistorical: 'rgba(0, 255, 0, 0.7)', // Green for historical points
+                correlationCurrent: 'rgba(255, 0, 0, 1)' // Red for current point
+            }
+        };
+
+        // Initialize charts
+        const charts = {
+            motorTemp: initChart('motorTempGraph', 'Motor Temp (°C)', [config.colors.motorTemp]),
+            voltageCurrent: initChart('voltageCurrentGraph', 'Voltage (V) / Current (A)', 
+                [config.colors.voltage, config.colors.current]),
+            gForce: initChart('gForceGraph', 'G-Forces (g)', 
+                [config.colors.gForceX, config.colors.gForceY]),
+            correlation: initCorrelationChart('correlationGraph')
+        };
+
+        // State management
+        const state = {
+            sessionStartTime: null, // Store actual timestamp (ms) when session started
+            lastUpdateTime: null,   // Store actual timestamp (ms) of last update
+            dataCache: {
+                time: [], // Will store timestamps in milliseconds
+                motorTemp: [],
+                voltage: [],
+                current: [],
+                gForceX: [],
+                gForceY: [],
+                throttle: [],
+                torque: []
+            }
+        };
+
+        // DOM Elements
+        const elements = {
+            currentTime: document.getElementById('current-time'),
+            sessionDuration: document.getElementById('session-duration'),
+            kpiContainer: document.getElementById('kpi-container')
+            // Removed exportBtn
+        };
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', init);
+
+        // --- Core Functions ---
+
+        function init() {
+            setupEventListeners();
+            fetchData(); // Initial data fetch
+            setInterval(fetchData, config.updateInterval); // Periodic data refresh
+        }
+
+        function setupEventListeners() {
+            // Event listener for individual Reset Zoom icon buttons
+            document.querySelectorAll('.reset-zoom-icon-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const chartId = event.currentTarget.dataset.chartId; // Use currentTarget for delegation
+                    if (charts[chartId] && charts[chartId].resetZoom) {
+                        charts[chartId].resetZoom();
+                    }
+                });
+            });
+        }
+
+        // Initializes a time-series line chart
+        function initChart(canvasId, title, colors) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const datasets = colors.map((color, i) => ({
+                label: title.split(' / ')[i] || title.split(' (')[0], // Use part of title as label
+                borderColor: color,
+                backgroundColor: color.replace('1)', '0.1)'),
+                borderWidth: 2,
+                pointRadius: 0, // No points for continuous line
+                fill: false
+            }));
+
+            return new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: getChartOptions(title)
+            });
+        }
+
+        // Initializes the scatter chart for Throttle vs. Torque
+        function initCorrelationChart(canvasId) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            
+            return new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Historical Data',
+                            backgroundColor: config.colors.correlationHistorical,
+                            borderColor: config.colors.correlationHistorical,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            data: []
+                        },
+                        {
+                            label: 'Current Point',
+                            backgroundColor: config.colors.correlationCurrent,
+                            borderColor: config.colors.correlationCurrent,
+                            pointRadius: 8,
+                            pointHoverRadius: 10,
+                            data: []
+                        }
+                    ]
+                },
+                options: {
+                    animation: {
+                        duration: 0 // Disable all animations for smooth real-time update
+                    },
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#eee' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: context => 
+                                    `Throttle: ${context.parsed.x}%,\nTorque: ${context.parsed.y}Nm` + 
+                                    (context.datasetIndex === 1 ? ' (Current)' : '')
+                            }
+                        },
+                        zoom: {
+                            zoom: {
+                                wheel: { enabled: true }, // Enable wheel zoom
+                                pinch: { enabled: true }, // Enable pinch zoom
+                                mode: 'xy'
+                            },
+                            pan: {
+                                enabled: true, // Enable pan
+                                mode: 'xy',
+                                modifierKey: null 
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Throttle (%)',
+                                color: '#aaa'
+                            },
+                            min: 0, // Set initial range for consistency
+                            max: 100,
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#aaa' }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Torque (Nm)',
+                                color: '#aaa'
+                            },
+                            min: 0, // Set initial range for consistency
+                            max: 60,
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#aaa' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Common options for time-series charts
+        function getChartOptions(title) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 }, // Disable animation for real-time updates
+                plugins: {
+                    legend: {
+                        labels: { color: '#eee', font: { size: 12 } }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: context => `Time: ${moment(context[0].parsed.x).format('HH:mm:ss.SSS')}`
+                        }
+                    },
+                    zoom: {
+                        zoom: {
+                            wheel: { enabled: true }, // Enable wheel zoom
+                            pinch: { enabled: true }, // Enable pinch zoom
+                            mode: 'xy'
+                        },
+                        pan: {
+                            enabled: true, // Enable pan
+                            mode: 'xy'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'second',
+                            displayFormats: { second: 'mm:ss' },
+                            tooltipFormat: 'HH:mm:ss.SSS' // Full time for tooltip
+                        },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: '#aaa' },
+                        title: { 
+                            display: true,
+                            text: 'Time',
+                            color: '#aaa'
+                        }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: '#aaa' },
+                        title: { 
+                            display: true,
+                            text: title.split(' / ')[0].split(' (')[0], // Extract unit-less title for Y-axis
+                            color: '#aaa'
+                        }
+                    }
+                }
+            };
+        }
+
+        // Formats duration from milliseconds to HH:mm:ss
+        function formatDuration(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        // Update time display in the header
+        function updateTimeDisplay(currentTimeMs) {
+            if (!state.sessionStartTime) {
+                state.sessionStartTime = currentTimeMs;
+            }
+            
+            elements.currentTime.textContent = moment(currentTimeMs).format('HH:mm:ss');
+            elements.sessionDuration.textContent = `Duration: ${formatDuration(currentTimeMs - state.sessionStartTime)}`;
+            state.lastUpdateTime = currentTimeMs;
+        }
+
+        // Fetches data from the Flask backend
+        async function fetchData() {
+            try {
+                const response = await fetch('/data');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                processData(data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                // You might want to display an error message on the dashboard
+            }
+        }
+
+        // Processes data received from the backend
+        function processData(data) {
+            if (data.graphs && data.graphs.time_data && data.graphs.time_data.length > 0) {
+                updateTimeDisplay(data.graphs.time_data[data.graphs.time_data.length - 1]);
+                
+                // Update KPIs
+                updateKPIs(data.kpis);
+                
+                // Update data cache (replace entire cache as backend sends limited points)
+                state.dataCache = {
+                    time: data.graphs.time_data, 
+                    motorTemp: data.graphs.motor_temp_data,
+                    voltage: data.graphs.voltage_data,
+                    current: data.graphs.current_data,
+                    gForceX: data.graphs.g_force_x_data,
+                    gForceY: data.graphs.g_force_y_data,
+                    throttle: data.graphs.throttle_data,
+                    torque: data.graphs.torque_data
+                };
+                
+                // Update all charts
+                updateCharts();
+            } else {
+                console.warn('Received no graph data or empty time_data from backend.');
+            }
+        }
+
+        // Updates all charts with the latest data from dataCache
+        function updateCharts() {
+            // Motor temperature chart
+            updateLineChart(charts.motorTemp, [{
+                x: state.dataCache.time,
+                y: state.dataCache.motorTemp
+            }]);
+            
+            // Voltage/current chart
+            updateLineChart(charts.voltageCurrent, [
+                { x: state.dataCache.time, y: state.dataCache.voltage },
+                { x: state.dataCache.time, y: state.dataCache.current }
+            ]);
+            
+            // G-Force chart
+            updateLineChart(charts.gForce, [
+                { x: state.dataCache.time, y: state.dataCache.gForceX },
+                { x: state.dataCache.time, y: state.dataCache.gForceY }
+            ]);
+            
+            // Update correlation chart separately to handle its specific logic
+            updateCorrelationChart();
+        }
+
+        // Helper to update individual line charts
+        function updateLineChart(chart, datasets) {
+            datasets.forEach((dataset, i) => {
+                // Map x and y arrays into Chart.js data objects {x: ..., y: ...}
+                chart.data.datasets[i].data = dataset.x.map((x, j) => ({ x: x, y: dataset.y[j] }));
+            });
+            chart.update('none'); // Update without animation
+        }
+
+        // Updates the Throttle vs. Torque correlation chart
+        function updateCorrelationChart() {
+            if (!state.dataCache.throttle.length) return;
+            
+            const lastIndex = state.dataCache.throttle.length - 1;
+            const currentThrottle = state.dataCache.throttle[lastIndex];
+            const currentTorque = state.dataCache.torque[lastIndex];
+            
+            // Historical points (all but the very last one)
+            // Use slice() to exclude the current point from the historical dataset
+            charts.correlation.data.datasets[0].data = 
+                state.dataCache.throttle.slice(0, lastIndex).map((t, i) => ({
+                    x: t,
+                    y: state.dataCache.torque[i]
+                }));
+            
+            // Current point (the very last data point)
+            charts.correlation.data.datasets[1].data = [{
+                x: currentThrottle,
+                y: currentTorque
+            }];
+            
+            // Auto-pan/zoom for correlation chart - keep this logic if you want it to follow the current point
+            const xRange = 20; // Show ±20% on X axis
+            const yRange = 15; // Show ±15Nm on Y axis
+            
+            const newXMin = Math.max(0, currentThrottle - xRange);
+            const newXMax = Math.min(100, currentThrottle + xRange);
+            const newYMin = Math.max(0, currentTorque - yRange);
+            const newYMax = Math.min(60, currentTorque + yRange);
+            
+            // Update scales to move viewport
+            charts.correlation.options.scales.x.min = newXMin;
+            charts.correlation.options.scales.x.max = newXMax;
+            charts.correlation.options.scales.y.min = newYMin;
+            charts.correlation.options.scales.y.max = newYMax;
+            
+            charts.correlation.update('none'); // Update without animation
+        }
+
+        // Updates KPI display
+        function updateKPIs(kpis) {
+            const kpiOrder = [
+                "Lap Time", "SoC", "Motor Temp",
+                "Voltage", "Current", "Throttle",
+                "Torque", "G-Force X", "G-Force Y"
+            ];
+            
+            elements.kpiContainer.innerHTML = kpiOrder.map(kpiName => {
+                const kpi = kpis[kpiName];
+                const displayValue = kpi && kpi.value !== undefined ? kpi.value : '--';
+                const displayUnit = kpi && kpi.unit !== undefined ? kpi.unit : '';
+                const displayStatus = kpi && kpi.status !== undefined ? kpi.status : 'normal';
+
+                return `
+                    <div class="kpi">
+                        <div class="kpi-title">${kpiName}</div>
+                        <div class="kpi-value status-${displayStatus}">
+                            ${displayValue} ${displayUnit}
+                        </div>
+                        <div class="kpi-trend">
+                            </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Removed exportData function entirely as it's no longer needed
+        /*
+        function exportData() {
+            const blob = new Blob([JSON.stringify(state.dataCache, null, 2)], {
+                type: 'application/json'
+            });
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `evr-data-${moment().format('YYYYMMDD-HHmmss')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        */
+    </script>
+</body>
+</html>
