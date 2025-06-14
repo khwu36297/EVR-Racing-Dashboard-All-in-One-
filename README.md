@@ -1,7 +1,3 @@
-แน่นอนครับ! นี่คือสรุปสั้นๆ ในรูปแบบที่เหมาะกับการเขียนลง GitHub:
-
----
-
 ## EVR Racing Dashboard: Real-time Data Visualization
 
 This project demonstrates a real-time racing data dashboard, built with a Flask backend for data simulation and a pure HTML/CSS/JavaScript frontend for visualization.
