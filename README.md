@@ -22,4 +22,9 @@ This project demonstrates a real-time racing data dashboard, built with a Flask 
 * **Lap Time Management**: Simulates lap completions, tracks current lap time, and identifies best lap times.
 * **CSV Logging**: Automatically logs all real-time data and KPI statuses to a CSV file (`evr_data_log.csv`) for later analysis. The CSV is cleared on each application startup.
 
+<img width="842" alt="Screenshot 2568-06-14 at 07 38 44" src="https://github.com/user-attachments/assets/4a9ce0bc-abc6-402a-9ef6-58da0823bcc4" />
+
+[https://youtu.be/9CP5i5SJTg8](https://youtu.be/9CP5i5SJTg8)
+
+
 ---
